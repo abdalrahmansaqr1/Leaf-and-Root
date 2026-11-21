@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm build",
     "preview": "vite preview",
     "format": "oxfmt"
   },
