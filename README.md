@@ -16,7 +16,7 @@ frontend and the first slice of the NestJS backend.
 | Frontend (`src/`) | Prototype, mostly static | Home, About, Plant Care & AI (+ identify/health/care/monitoring), Marketplace, Community, Blogs, Help/Privacy/Terms. Content comes from static data in `src/data/siteData.ts`. |
 | Frontend ↔ backend | Login and sign-up only | `src/pages/AuthPages.tsx` calls `POST /api/v1/auth/login` and `/register`. The UI has no logout, profile or session-aware screens. `PlantCareAiPage.tsx` calls `POST /api/photo-submissions`, which **does not exist** on the backend. |
 | Backend (`server/`) | Foundation, authentication, initial plant subset | NestJS 12, Prisma 7, PostgreSQL 17, REST under `/api/v1`, Swagger at `/api/docs`. |
-| CI | Green on the fork's draft PR for the foundation (head `799da46`); **not yet run on the plant module** | GitHub Actions: build/typecheck/unit job and a PostgreSQL integration-test job. See [server/docs/architecture.md](server/docs/architecture.md#ci-github-actions). |
+| CI | Green on the fork's stacked draft PRs, including the plant module (run 45321864482, head `fa734fc`); nothing is merged | GitHub Actions: build/typecheck/unit job and a PostgreSQL integration-test job. See [server/docs/architecture.md](server/docs/architecture.md#ci-github-actions). |
 
 ### Module status
 
@@ -25,7 +25,7 @@ frontend and the first slice of the NestJS backend.
 | Authentication and sessions | **Completed** (register, login, logout, `GET /auth/me`) |
 | User profile (`/users/me`, name only) | **Completed** |
 | Health check (`GET /health`) | **Completed** |
-| Plant management: add, list, view, edit | **Implemented, provisional** – fields and limits are engineering assumptions; verified locally, CI not yet run on it |
+| Plant management: add, list, view, edit | **Implemented, provisional** – fields and limits are engineering assumptions; verified locally and in CI on a draft PR; not merged |
 | Plant deletion | **Blocked** – hard vs soft delete not approved ([PM-6](server/docs/assumptions-and-pending-decisions.md)); no endpoint exists |
 | Care tasks, reminders, notifications | Pending decisions, not started |
 | Photo submission, AI analysis, chatbot | Pending requirements, not started |

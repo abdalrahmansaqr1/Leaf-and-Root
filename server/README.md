@@ -96,9 +96,9 @@ pnpm --dir server test:e2e    # integration tests against PostgreSQL (step 2 fir
 pnpm check                    # from the repo root: generate, unit, typecheck (web + API), build (web + API)
 ```
 
-Expected results on 2026-11-24 (branch `feature/plant-management-crud`, before its commit): unit **79 passed**
-(8 files), integration **114 passed** (6 files), `pnpm check` exit code 0. These counts change as tests
-are added. (The earlier foundation run in CI was 30 unit / 51 integration.)
+Expected results on 2026-11-24 (commit `fa734fc`, locally and in CI): unit **79 passed** (8 files),
+integration **114 passed** (6 files), `pnpm check` exit code 0. These counts change as tests are added.
+(The earlier foundation-only run in CI was 30 unit / 51 integration.)
 
 `test:e2e` creates and migrates a separate `<name>_test` database automatically; the harness refuses any
 database that is not local or whose name does not end in `_test`

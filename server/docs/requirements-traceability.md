@@ -23,7 +23,9 @@ Status values: **Implemented** (code + tests, evidence cited) · **Per brief —
 
 Implementation and tests: `server/src/plants/` (`plants.schemas.spec.ts` unit; `plants.e2e-spec.ts`,
 `plants-ownership.e2e-spec.ts` integration). Evidence: unit 79/79 and integration 114/114 run locally on
-2026-11-24 (branch `feature/plant-management-crud`); **CI has not yet run on this module**. The source
+2026-11-24 and in GitHub Actions run
+[45321864482](https://github.com/abdalrahmansaqr1/Leaf-and-Root/actions/runs/45321864482) (head `fa734fc`,
+draft PR #3 in the fork, not merged). The source
 citation for REQ-PL-01..05 is still "per brief; SRS citation pending" (the SRS/DFD files are unavailable).
 The field set is **provisionally accepted** (`name` required; `species`, `location`, `notes` optional) as an
 engineering assumption, not a final product-owner-approved requirement.

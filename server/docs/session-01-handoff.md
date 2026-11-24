@@ -13,7 +13,7 @@ details: [architecture](architecture.md), [API contracts](api-contracts.md),
 | Implemented backend | Health, authentication (register, login, logout, `GET /auth/me`), user profile name (`GET`/`PATCH /users/me`), and the initial plant subset (`POST`/`GET /plants`, `GET`/`PATCH /plants/:id`). No other endpoints. |
 | Frontend | Static prototype; only login and sign-up call the API (`/api/v1/auth/*`). No screen uses the plant API; the frontend was not modified. |
 | Plant Management | Initial subset **implemented, provisional** (session 3). **Not complete**: `DELETE` is blocked on PM-6; fields/limits are engineering assumptions. |
-| CI | Green on the fork's draft PR for the foundation (head `799da46`). **Not yet run on the plant module** (it exists only on a local branch). |
+| CI | Green on all three stacked draft PRs in the fork, including the plant module (run links in the CI evidence section). Not merged anywhere. |
 | Requirements sources | Original SRS/DFD, Flutter, AI and IoT specs are **unavailable** and were **not** reviewed |
 
 ## Git state
@@ -23,8 +23,32 @@ details: [architecture](architecture.md), [API contracts](api-contracts.md),
 | `development` | Untouched (local and on the fork, `a680f32`) |
 | `feature/backend-foundation-auth` | Pushed to the owner's fork only (`abdalrahmansaqr1/Leaf-and-Root`, a fork of `yasminekamel219-maker/Leaf-and-Root`). Head at last verification: `799da46`, equal local and remote |
 | Draft PR #1 on the fork | `feature/backend-foundation-auth` → fork `development`. Open, **draft, not merged**; opened only because CI triggers on `pull_request`, not on feature-branch pushes |
-| `docs/session-2-plant-requirements` | **Local only.** Documentation consolidation, commit `4a171a4` (on top of `799da46`) |
-| `feature/plant-management-crud` | **Local only**, created from `4a171a4`. Holds the Plant Management implementation (session 3); see that entry for its commit status |
+| `docs/session-2-plant-requirements` | Pushed to the fork. Remote head `4a171a4` (documentation consolidation, on top of `799da46`) |
+| `feature/plant-management-crud` | Pushed to the fork. Remote head at the time of the CI run below: `fa734fc` (Plant Management initial subset, on top of `4a171a4`). A later documentation-only commit may sit on top; check `git log` |
+
+### Stacked draft pull requests (all inside the fork `abdalrahmansaqr1/Leaf-and-Root`, all open, none merged)
+
+| PR | Base ← head | Contents |
+|---|---|---|
+| [#1](https://github.com/abdalrahmansaqr1/Leaf-and-Root/pull/1) | `development` ← `feature/backend-foundation-auth` (`799da46`) | Foundation + authentication (preserved as it was) |
+| [#2](https://github.com/abdalrahmansaqr1/Leaf-and-Root/pull/2) | `feature/backend-foundation-auth` ← `docs/session-2-plant-requirements` (`4a171a4`) | 1 commit, 12 documentation files |
+| [#3](https://github.com/abdalrahmansaqr1/Leaf-and-Root/pull/3) | `docs/session-2-plant-requirements` ← `feature/plant-management-crud` (`fa734fc`) | 1 commit, 21 files: Plant model/migration, plants module, tests, documentation |
+
+The PR file lists were checked on GitHub: #2 contains only documentation, #3 only the Plant Management change.
+Nothing was pushed to `upstream`; `development` and `main` on the fork still point to `a680f32` and `024956c`.
+
+### CI evidence for the stacked PRs (GitHub Actions on the fork; workflow runs on `pull_request`)
+
+| Run | Head | `check` | `API integration tests (PostgreSQL)` |
+|---|---|---|---|
+| [45321859732](https://github.com/abdalrahmansaqr1/Leaf-and-Root/actions/runs/45321859732) (PR #2) | `4a171a4` | **success**: 30 unit tests, frontend and API builds | **success**: 51 tests |
+| [45321864482](https://github.com/abdalrahmansaqr1/Leaf-and-Root/actions/runs/45321864482) (PR #3) | `fa734fc` | **success**: 79 unit tests, typecheck, frontend and API builds | **success**: 114 tests (6 files) against a fresh CI PostgreSQL container with all 3 migrations applied by the harness |
+
+Counts were read from the run logs. The integration job creates a new database in a new container, so it is
+also the fresh-database migration check, and its tests assert the `Plant` foreign key is `RESTRICT`, the
+index exists, ownership isolation holds for two users and for an `ADMIN`, and no `DELETE` route or OpenAPI
+operation exists. The ownership tests were also shown to be effective locally by a mutation check (removing
+the owner scope made 3 tests fail). Earlier foundation runs: see the table above.
 
 Nothing was pushed to `upstream`, merged or deployed.
 
@@ -107,7 +131,7 @@ Committed locally as `4a171a4` on `docs/session-2-plant-requirements`. No push.
 
 ## Session 3 — Plant Management, initial CRUD subset (provisional)
 
-Branch `feature/plant-management-crud` (local, from `4a171a4`). Implemented in `server/src/plants/`:
+Branch `feature/plant-management-crud` (pushed to the fork, from `4a171a4`; draft PR #3). Implemented in `server/src/plants/`:
 `POST /plants`, `GET /plants` (`limit`, `offset`, `meta.total`), `GET /plants/:id`, `PATCH /plants/:id`;
 Prisma model `Plant` and migration `20261124032335_add_plant` (index `(userId, createdAt)`, foreign key
 `ON DELETE RESTRICT`, no `deletedAt`); shared `parseQuery` helper next to `parseBody`; OpenAPI schemas.
@@ -135,7 +159,7 @@ smoke test was rerun with a corrected script; only the rerun is reported. The ex
 `app.e2e-spec.ts` lists every path exactly; the two plant paths were added to its expected list (an
 extension, not a relaxation). The frontend build is part of `pnpm check` and passed; no frontend file changed.
 Smoke users `smoke-a-…@example.com` and `smoke-b-…@example.com` and one plant remain in the dev database.
-**CI has not run on this work.** See [04-plant-management-decision-review.md §10](04-plant-management-decision-review.md#10-session-3-outcome-what-was-implemented-and-where-it-differs-from-the-proposals).
+CI later ran on this work and passed (see the CI evidence for the stacked PRs above). See [04-plant-management-decision-review.md §10](04-plant-management-decision-review.md#10-session-3-outcome-what-was-implemented-and-where-it-differs-from-the-proposals).
 
 ## Known limitations and remaining risks
 
@@ -156,8 +180,7 @@ Smoke users `smoke-a-…@example.com` and `smoke-b-…@example.com` and one plan
 1. Get the owner's decision on **PM-6** (hard vs soft deletion, D7 retention) and confirm the provisional
    plant fields; then implement `DELETE /plants/:id` (and `deletedAt` only if soft deletion is chosen) with
    the matching tests and the `Plant.userId` foreign-key decision.
-2. Push the plant branch (owner's decision) so CI runs the new tests; CI evidence for the plant module does
-   not exist yet.
+2. Owner reviews the three stacked draft PRs (#1 → #2 → #3) and decides how they land; nothing is merged.
 3. Then, depending on decisions: care tasks (PM-3/PM-4), photo submission (D12), or the auth decisions
    (D1, D2, D5).
 

@@ -140,9 +140,10 @@ to `main` and `development` (a push to any other branch does not start it).
 | `check` | `pnpm check`: Prisma generate, unit tests, typecheck (web + API), build (web + API) | None. A placeholder `DATABASE_URL` is set because `prisma.config.ts` requires one to load |
 | `api-integration` | `pnpm --dir server prisma:generate` then `pnpm --dir server test:e2e` | PostgreSQL 17 service container; the harness creates `leaf_and_root_test` and applies every migration |
 
-Evidence (GitHub Actions run 45311513292 on the fork's draft PR, head `799da46`, which **predates the Plant
-module; CI has not yet run on it**): `check` passed
-(30 unit tests, frontend and API builds) and `api-integration` passed (51 tests). An earlier run failed in
+Evidence: run [45321864482](https://github.com/abdalrahmansaqr1/Leaf-and-Root/actions/runs/45321864482)
+on the fork's stacked draft PR #3 (head `fa734fc`, includes the Plant module): `check` passed (79 unit tests,
+typecheck, frontend and API builds) and `api-integration` passed (114 tests). Foundation-only run
+45311513292 (head `799da46`): 30 unit and 51 integration tests. An earlier run failed in
 `check` because `DATABASE_URL` was missing; that was fixed without changing any test. The workflow change
 exists on the feature branch only until it is merged, so the upstream `main`/`development` do not run
 `api-integration` yet.
