@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Internal authorization role. Never accepted from clients; granting ADMIN is a
+/// database/operator action until an RBAC requirement is approved.
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique @db.VarChar(254)
+  passwordHash String
+  name         String    @db.VarChar(80)
+  role         UserRole  @default(USER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  tokenHash String   @unique @db.Char(64)
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}

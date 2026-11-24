@@ -3,6 +3,7 @@ dist/
 build/
 .cache/
 .env*
+!.env.example
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -22,3 +23,4 @@ logs/
 /.claude-flow/
 /.codebase-memory/
 /.swarm/
+/server/src/generated/prisma/
