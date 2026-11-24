@@ -43,7 +43,7 @@ Confirmed by the session brief and/or visible in the frontend UI:
 | D7 | Account deletion, data export, retention | Privacy requirements unknown |
 | D8 | Multi-device session management (list/revoke), session lifetime policy, refresh tokens | |
 | D9 | Email-enumeration policy (generic register response vs 409) | Trade-off UX vs privacy |
-| D10 | Password hashing upgrade to argon2id / higher scrypt cost with rehash-on-login | Current N=16384 is below OWASP guidance |
+| D10 | Move to argon2id | scrypt was raised to N=2^16,r=8,p=2 with rehash-on-login (see 02-security-review.md); argon2id still pending |
 | D11 | Deployment topology: reverse proxy (`trust proxy` for correct client IP in rate limiting), TLS, hosting, backups, migration ownership | Rate limiting uses the socket IP until configured |
 | D12 | Photo-submission contract, storage, limits, privacy | Frontend already calls `POST /api/photo-submissions` |
 | D13 | Plant data model, care tasks, marketplace (real commerce vs demo), community moderation, blogs | Currently static frontend data |

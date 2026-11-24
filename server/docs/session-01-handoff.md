@@ -1,82 +1,98 @@
 # Session 1 handoff — backend foundation & authentication
 
-Date: 2026-11-24 · Branch `development` · **Nothing committed, pushed or deployed.**
+Date: 2026-11-24 · Branch `feature/backend-foundation-auth` (cut from `development`) ·
+**Local commits only. Nothing pushed, merged or deployed.**
+
+## Commits (local)
+
+| SHA | Content |
+|---|---|
+| `fbcc681` | Checkpoint: backend foundation + authentication, tests, docs (62 files) |
+| `336c209` | CI Postgres job; auth rate-limit redesign; scrypt upgrade with rehash-on-login; malformed-cookie 500 fix |
+| tip of the branch (`git log -1`) | This handoff, security review doc, timing fix, doc updates |
+
+`development` itself was not modified. Not committed on purpose: `.claude/launch.json` (local tool state).
+Pre-existing uncommitted work (`server/` baseline, `compose.yaml`, `pnpm-workspace.yaml`, `vite.config.ts`
+proxy, original `AuthPages.tsx` wiring) was included in `fbcc681` because the foundation builds on it.
 
 ## What was implemented
 
-Extended the existing `server/` app (see the assessment for why not `backend/`):
+Extended the existing `server/` app (see `01-repository-assessment.md` for why not `backend/`):
 
-- **Foundation:** validated env config; `/api/v1` prefix; `GET /health` with a real DB probe; consistent
-  error envelope (incl. JSON 404 outside the prefix); pino logging with redaction; CORS allowlist;
-  security headers + CSRF; auth rate limits; Swagger/OpenAPI; isolated test database harness; `.env.example`.
-- **Auth:** register, login, logout, `GET /auth/me`; cookie sessions for web and bearer transport for native clients.
-- **Users:** `GET` and `PATCH /users/me` (name only).
-- **Data:** migration `add_user_role` (`UserRole` enum, `User.role` default `USER`).
-- **Frontend (one line):** `src/pages/AuthPages.tsx` now calls `/api/v1/auth/*`.
+- **Foundation:** validated env; `/api/v1`; `GET /health` with a real DB probe; error envelope (incl. JSON 404
+  outside the prefix); pino logging with redaction; CORS allowlist; security headers + CSRF; Swagger/OpenAPI;
+  isolated test-database harness; `.env.example`.
+- **Auth:** register, login, logout, `GET /auth/me`; cookie sessions (web) and bearer transport (native).
+- **Users:** `GET` and `PATCH /users/me` (name only). Internal `role` never exposed or writable.
+- **Follow-up:** CI PostgreSQL job; three-window auth rate limiting; scrypt N=2^16,r=8,p=2 with transparent
+  upgrade of old hashes; malformed-cookie fix. Details in [02-security-review.md](02-security-review.md).
+- **Frontend:** one line, `AuthPages.tsx` → `/api/v1/auth/*`.
 
-## Files
-
-Created: `server/src/config/{env.ts,env.spec.ts}` · `server/src/logging/{logger.config.ts,logger.config.spec.ts}` ·
-`server/src/auth/{session-auth.guard.ts,session-auth.guard.spec.ts}` ·
-`server/src/users/{users.module.ts,users.controller.ts,users.service.ts,users.schemas.ts,users.e2e-spec.ts}` ·
-`server/src/common/openapi.ts` · `server/src/swagger.ts` · `server/src/app.e2e-spec.ts` ·
-`server/src/test/{test-database.ts,test-database.spec.ts,global-setup.ts,http.ts}` ·
-`server/prisma/migrations/20261123225325_add_user_role/` · `server/README.md` · `server/docs/*` (5 files).
-
-Modified: `server/prisma/schema.prisma` · `server/src/{create-app,main,app.module,health.controller}.ts` ·
-`server/src/prisma/prisma.service.ts` · `server/src/common/api-exception.filter.ts` ·
-`server/src/auth/{auth.controller,auth.service,auth.module,auth.e2e-spec}.ts` ·
-`server/{.env.example,vitest.e2e.config.ts,tsconfig.build.json,package.json}` ·
-`src/pages/AuthPages.tsx` · `pnpm-lock.yaml` · root `README.md`.
-New dependencies: `@nestjs/swagger`, `nestjs-pino`, `pino`, `pino-http`, dev `@types/pg`.
-
-Pre-existing uncommitted work in the tree (not mine): `server/` baseline, `compose.yaml`, `pnpm-workspace.yaml`,
-`vite.config.ts` proxy, the original `AuthPages.tsx` API wiring.
-
-## How to run
-
-See [../README.md](../README.md). Short form: `docker compose up -d postgres`, copy `server/.env.example`
-to `server/.env`, `pnpm --dir server db:deploy`, `pnpm dev:api`.
-
-## Verification (actual results, run 2026-11-24 on Windows, Node 24, PostgreSQL 17 in Docker)
+## Verification (actually run, 2026-11-24, Windows, Node 24, PostgreSQL 17 in Docker)
 
 | Check | Result |
 |---|---|
 | `tsc --noEmit` (server) | clean |
-| Unit tests `pnpm --dir server test` | **26 passed / 26** (7 files) |
-| Integration tests `pnpm --dir server test:e2e` (isolated `leaf_and_root_test`) | **43 passed / 43** (3 files) |
-| `pnpm check` (generate, unit, typecheck web + api, build web + api) | passed |
-| Migrations | `prisma migrate status`: 2 migrations, "Database schema is up to date"; both applied to a freshly created test DB by the harness |
-| Real server start (`node dist/main.js`) + curl | health 200 `database: up`; register 201 with HttpOnly cookie; `/users/me` unauthenticated 401; `/api/docs` 200 |
-| Swagger UI in a browser | renders all 6 endpoints, no console errors |
-| Log scan after real requests | no password or session token in the log |
+| Unit tests `pnpm --dir server test` | **30 / 30** (7 files) |
+| Integration tests `pnpm --dir server test:e2e` (isolated `leaf_and_root_test`) | **51 / 51** (4 files) |
+| `pnpm check` (generate, unit, typecheck web+api, build web+api) | exit 0 |
+| CI simulation: e2e against a brand-new database name (`ci_sim` → `ci_sim_test`, all migrations from scratch) | 43 / 43 at that time (before the hardening tests were added) |
+| New tests were red before the fix | malformed-cookie unit test failed with `URIError` before the fix |
 
-Integration coverage maps to the brief: registration success/duplicate/invalid, password hashing and
-verification, valid/invalid login, unauthorized access, profile read/update and ownership, logout
-invalidation, expiry, bearer transport, throttling, CORS, CSRF, OpenAPI contents, DB persistence.
+**CI itself has not run** (nothing pushed). The `api-integration` job is a new workflow section that
+mirrors the commands verified locally; its YAML was not parsed by a validator here, so the first run on
+GitHub is the real check. The job uses a disposable `postgres:postgres` service credential.
 
-Defects found by the tests and fixed: log redaction missed root-level `password`/`token` keys;
-unknown routes outside `/api/v1` returned Express HTML instead of the JSON envelope.
+### Real-browser verification (React frontend on :8443 → Vite proxy → API :3001, manual run in the in-app browser)
 
-## Security decisions
-Opaque hashed sessions, HttpOnly cookies, strict schemas, no client-assignable role, constant-ish-time login,
-generic 401, redacted logs, CORS allowlist, CSRF, rate limits, isolated test DB with safety guards. Details in `architecture.md`.
+Note: the app uses `HashRouter`, so pages are `/#/signup` and `/#/login`.
 
-## Known limitations
-- scrypt cost (N=16384) is below current OWASP guidance; argon2id migration pending.
-- `POST /auth/register` reveals whether an email exists (409).
-- Rate limiting keys on the socket IP; behind a proxy this needs `trust proxy` (deployment decision).
-- Sessions are absolute-lifetime, no refresh/rotation, no "revoke other sessions".
-- CI does not run `test:e2e` (no PostgreSQL service in `.github/workflows/ci.yml`).
-- Swagger UI needs a relaxed CSP; keep Swagger disabled in production unless intended.
-- The dev database contains one smoke-test user (`smoke-…@example.com`) created by the manual curl check.
-- Not tested: behaviour under concurrent load; real browser login through the React pages (only the API and Swagger UI were exercised in a browser).
+| Scenario | Observed |
+|---|---|
+| Sign up through the form | `POST /api/v1/auth/register` → 201 |
+| Sign up with an existing email | UI shows "An account already exists for this email" (409) |
+| Login, wrong password | UI shows generic "Invalid email or password" |
+| Login, correct password | UI shows the "Welcome back!" state |
+| Session cookie | Not visible to `document.cookie` (HttpOnly); `/auth/me` and `/users/me` → 200 with it |
+| Persistence | `/auth/me` still 200 after an incidental full-page reload by the dev server |
+| No credentials | `/auth/me` with `credentials: omit` → 401 |
+| `PATCH /users/me` name | 200, name changed; `{role:"ADMIN"}` → 422 (unknown key) |
+| Logout | 204; `/auth/me` afterwards → 401; second logout → 204 (idempotent) |
+| Cross-origin read (page → API origin directly) | Blocked by the browser (CORS off in the default `.env`) |
+| Allowlist (second API instance, `CORS_ALLOWED_ORIGINS=http://localhost:8443`, curl) | Allowed origin gets `Access-Control-Allow-Origin` + credentials; `https://evil.example` gets none |
+| CSRF (curl with `Sec-Fetch-Site: cross-site`) | Non-allowlisted origin → 403; allowlisted origin → 204 |
+| Security headers | CSP, HSTS, `nosniff`, `Referrer-Policy`, `X-Frame-Options` present |
 
-## Pending requirements
-See `assumptions-and-pending-decisions.md` (D1–D16).
+Not covered: the "account created" success card after sign-up (the dev server reloaded the page and cleared
+it during the first run; I did not repeat it); a `Secure` cookie over real HTTPS (only set when
+`NODE_ENV=production`); mobile/bearer flow in a real client; cross-browser; an automated browser E2E suite
+(this run was manual and is not repeatable by CI).
+
+## Security review outcome (summary; full detail in 02-security-review.md)
+
+- scrypt was below OWASP minimum equivalents → raised, existing accounts keep working (rehash on next login).
+- Rate limit could be bypassed by rotating emails → per-IP and per-account windows added.
+- Cookie with bad percent-encoding caused a 500 → fixed (test written first, observed failing).
+- Legacy-hash timing difference introduced by the upgrade → padded to equal work (reasoned, not measured statistically).
+- Register still reveals existing emails (409) → documented, D9 open.
+
+## Known limitations and remaining risks
+
+- argon2id not adopted (D10); ~64 MiB per concurrent hash, not load-tested.
+- Rate-limit counters are in memory and per process; `trust proxy` not configured (D11).
+- Per-account window permits a limited lock-out of a victim's login by an attacker.
+- Sessions are absolute-lifetime; no refresh/rotation or "revoke other sessions" (D8).
+- Swagger UI needs a relaxed CSP; keep it off in production unless intended.
+- Dev database contains test users from manual checks (`smoke-…@example.com`, `browser-check-1@example.com`).
+- The e2e config raises `AUTH_RATE_LIMIT_IP/ACCOUNT` to 1000 so the suite can create many accounts from one
+  address; the per-pair limit (5) is unchanged and the dedicated hardening spec tests the real windows with small values.
+- Original SRS/DFD documents are **not** in the repository and were **not** reviewed; requirements stay as
+  classified in `assumptions-and-pending-decisions.md` (D1–D16 unresolved, unchanged).
 
 ## Recommended next session
-1. Review + commit this work (with the original baseline) and add a Postgres service to CI so `test:e2e` gates PRs (D15).
-2. Browser E2E of the actual login/sign-up pages against the running API.
-3. Decide D1/D2/D5 (email verification, password reset, roles) with the product owner.
-4. Then the plant-care core per the backlog: plants collection with ownership checks, care tasks + history.
+
+1. Push the branch (owner's decision) and confirm the new `api-integration` job is green on GitHub.
+2. Decide D1/D2/D5/D9 with the product owner (email verification, reset, roles, enumeration policy).
+3. Provide the SRS/DFD so requirements can be reconciled; then start the plant-care core
+   (plants collection with ownership checks, care tasks and history). **Plant Management was not started.**
+4. Before any deployment: D10/D11 (hashing, proxy, shared rate-limit store, HTTPS/`Secure` cookie test).

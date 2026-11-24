@@ -33,6 +33,8 @@ message (key names only, never values) if anything is invalid. See [`.env.exampl
 | `NODE_ENV` | `development` | `production` enables `Secure` cookies and disables Swagger by default |
 | `LOG_LEVEL` | `info` | pino level |
 | `SESSION_TTL_DAYS` | `30` | Session lifetime |
+| `AUTH_RATE_LIMIT_IP` | `20` | Register/login attempts per IP per 15 min |
+| `AUTH_RATE_LIMIT_ACCOUNT` | `30` | Register/login attempts per email per 15 min |
 | `CORS_ALLOWED_ORIGINS` | empty (CORS off) | Comma-separated origins; no wildcards |
 | `SWAGGER_ENABLED` | on outside production | Serve `/api/docs` |
 | `TEST_DATABASE_URL` | `<DATABASE_URL db>_test` | Isolated integration-test database |
@@ -79,4 +81,4 @@ docs/          architecture, API contracts, assumptions, handoff
 
 [architecture](docs/architecture.md) · [API contracts](docs/api-contracts.md) ·
 [assumptions & pending decisions](docs/assumptions-and-pending-decisions.md) ·
-[session 1 handoff](docs/session-01-handoff.md)
+[security review](docs/02-security-review.md) · [session 1 handoff](docs/session-01-handoff.md)

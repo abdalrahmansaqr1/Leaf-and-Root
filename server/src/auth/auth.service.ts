@@ -70,6 +70,11 @@ export class AuthService {
       input.password,
       record?.passwordHash ?? (await dummyPasswordHash),
     );
+    if (record && !isValid && needsRehash(record.passwordHash)) {
+      // A wrong password on a legacy (cheaper) hash would otherwise answer much faster than an
+      // unknown email, which is checked against a current-cost dummy. Pad to equal work.
+      await verifyPassword(input.password, await dummyPasswordHash);
+    }
     if (!record || !isValid) throw new UnauthorizedException("Invalid email or password");
 
     // Transparently upgrade hashes created with weaker scrypt parameters. The password was just

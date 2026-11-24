@@ -30,14 +30,18 @@ Base path `/api/v1`. The authoritative, machine-readable contract is the OpenAPI
 ### `GET /health` — public
 `200 { "data": { "status": "ok", "database": "up" } }` · `503` when the DB is unreachable.
 
-### `POST /auth/register` — public, 5 / 15 min per email+IP
+Register and login share three 15-minute windows: 5 per email+IP, `AUTH_RATE_LIMIT_IP` (default 20) per
+IP, and `AUTH_RATE_LIMIT_ACCOUNT` (default 30) per email. Exceeding any returns `429 RATE_LIMITED`.
+See [02-security-review.md](02-security-review.md).
+
+### `POST /auth/register` — public, rate-limited (see above)
 Body: `{ "email": string (valid, ≤254), "password": string (10–128), "name": string (2–80, trimmed) }`.
 Unknown fields → 422. Email is lower-cased.
 - `201 { data: { user } }` + `Set-Cookie: leaf_root_session=…; HttpOnly; SameSite=Lax; Expires=…`
 - With `X-Auth-Transport: bearer`: `201 { data: { user, token, expiresAt } }`, no cookie.
 - `409 EMAIL_IN_USE` · `422` · `429`
 
-### `POST /auth/login` — public, 5 / 15 min per email+IP
+### `POST /auth/login` — public, rate-limited (see above)
 Body: `{ "email", "password" }`.
 - `200` same shapes as register (cookie or bearer).
 - `401` identical body for unknown email and wrong password · `422` · `429`

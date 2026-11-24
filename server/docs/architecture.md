@@ -8,7 +8,7 @@ schemas; modules talk through exported services, never through each other's tabl
 ```
 AppModule
 ├─ LoggerModule (nestjs-pino)     structured, redacted logs
-├─ ThrottlerModule + AuthThrottlerGuard   global rate limit
+├─ ThrottlerModule + ThrottlerGuard       global limit + auth windows (auth-rate-limit.ts)
 ├─ PrismaModule (global)          the only database access point
 ├─ AuthModule                     register · login · logout · me · SessionAuthGuard
 ├─ UsersModule  ──imports──▶ AuthModule   profile read/update
@@ -57,11 +57,11 @@ secure store); there is no refresh/rotation and no "list/revoke my other session
 
 ## Passwords
 
-Node `crypto.scrypt` (N=16384, r=8, p=1, 16-byte random salt, 64-byte key), stored as
-`scrypt$N$r$p$salt$key`, verified with `timingSafeEqual`. Login runs a dummy hash for unknown emails
-so response time does not reveal which emails exist. **Limitation:** N=16384 is below the current
-OWASP scrypt guidance (N=2^17); migrating to argon2id (or raising cost) with rehash-on-login is
-recorded as pending.
+Node `crypto.scrypt` (N=2^16, r=8, p=2, 16-byte random salt, 64-byte key), stored as
+`scrypt$N$r$p$salt$key`, verified with `timingSafeEqual` using the parameters stored in the hash.
+Older, weaker hashes (N=2^14, p=1) still verify and are re-hashed on the next successful login.
+Login runs a dummy hash for unknown emails so response time does not reveal which emails exist.
+Moving to argon2id is still pending (D10). See [02-security-review.md](02-security-review.md).
 
 ## Security controls
 
