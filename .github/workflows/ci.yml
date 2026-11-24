@@ -13,6 +13,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # prisma.config.ts requires DATABASE_URL to load, but `prisma generate` and the unit tests
+      # never connect to a database. A placeholder keeps this job database-free.
+      DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
