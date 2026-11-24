@@ -7,6 +7,7 @@ import { authThrottlers } from "./auth/auth-rate-limit.js";
 import { getEnv } from "./config/env.js";
 import { HealthController } from "./health.controller.js";
 import { createPinoHttpOptions } from "./logging/logger.config.js";
+import { PlantsModule } from "./plants/plants.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { UsersModule } from "./users/users.module.js";
 
@@ -22,6 +23,7 @@ import { UsersModule } from "./users/users.module.js";
     PrismaModule,
     AuthModule,
     UsersModule,
+    PlantsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

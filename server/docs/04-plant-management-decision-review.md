@@ -1,7 +1,11 @@
 # Plant Management — requirements and decision review (Session 2)
 
-Status: **review only. No Plant Management code, schema or migration was written.**
-Nothing here is an approved decision. "Recommendation" means an engineering proposal for the team to
+Status: this document was written as a **review** in session 2. **Session 3 implemented the initial subset**
+(create, list, view, update; no delete) on the provisional fields. Where the implementation differs from the
+proposals below, the **implemented behaviour is documented in
+[api-contracts.md](api-contracts.md#plants-provisional-initial-subset) and
+[architecture.md](architecture.md#plant-ownership-implemented-provisional-scope)**, and the differences are
+listed in section 10. Nothing here is an approved product decision. "Recommendation" means an engineering proposal for the team to
 accept, change or reject.
 
 ## 0. Source status (read this first)
@@ -110,7 +114,8 @@ assumption, **not** a final product-owner-approved requirement; the table below 
 `scientificName` (care/catalogue/derived data: PM-2/PM-3), `imageUrl` (PM-5).
 
 ```prisma
-// PROPOSAL ONLY — not applied, no migration created.
+// Session-2 PROPOSAL, kept for the record. Implemented with `onDelete: Restrict` instead of `Cascade`
+// (see section 10); the real model is in server/prisma/schema.prisma.
 model Plant {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
@@ -126,7 +131,8 @@ model Plant {
 }
 ```
 
-`onDelete: Cascade` from `User` mirrors `Session` and stays subject to D7 (account deletion policy).
+The proposal used `onDelete: Cascade` (mirroring `Session`), subject to D7. **The implementation uses
+`Restrict` instead** (section 10).
 
 ## 4. Proposed REST contract (engineering proposal)
 
@@ -229,3 +235,24 @@ team's behalf.**
   `trust proxy` (D11) matter more once data is user-specific; the frontend still uses static data
   (wiring it is frontend work, outside backend scope unless requested); `POST /api/photo-submissions`
   is called by the frontend but not implemented (D12).
+
+## 10. Session 3 outcome: what was implemented and where it differs from the proposals
+
+Implemented (REQ-PL-01..04, provisional): `POST /plants`, `GET /plants`, `GET /plants/:id`,
+`PATCH /plants/:id`, the `Plant` model and migration `add_plant`, owner-scoped queries, and the tests listed
+in [requirements-traceability.md](requirements-traceability.md#b-plant-management-initial-subset-implemented-in-session-3-not-complete).
+**Not implemented:** `DELETE /plants/:id` (PM-6 unapproved), PM-1 plant limit, PM-2..PM-5, PM-7, PM-8.
+
+Differences from the proposals in sections 3 to 6:
+
+| Topic | Proposal | Implemented |
+|---|---|---|
+| Foreign key to `User` | `ON DELETE CASCADE` | **`ON DELETE RESTRICT`**: a user owning plants cannot be deleted until an account-deletion and retention policy (D7) is approved |
+| Optional text fields | not specified | trimmed; empty string invalid; `null` means "no value" and clears on update (limits: species 120, location 80, notes 1000) |
+| Non-UUID `:id` | 404 | 404 with the same body as a missing plant |
+| Update | "`PATCH` requires at least one field" | same; an empty object returns 422 |
+| Test 8 (delete) / 13 (plant limit) | planned | not applicable: no delete route and no limit; a test asserts `DELETE` returns 404 and the row stays |
+| Test 12 (OpenAPI) | five operations | four operations; a test asserts exactly these and no delete |
+
+Test counts and evidence: see the [handoff](session-01-handoff.md). Everything in this document that is not
+listed above remains a proposal or a pending decision.

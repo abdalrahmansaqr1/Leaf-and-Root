@@ -12,10 +12,11 @@ AppModule
 ├─ PrismaModule (global)          the only database access point
 ├─ AuthModule                     register · login · logout · me · SessionAuthGuard
 ├─ UsersModule  ──imports──▶ AuthModule   profile read/update
+├─ PlantsModule ──imports──▶ AuthModule   plants: create · list · view · update (no delete)
 └─ HealthController               liveness + DB probe
 ```
 
-Future areas (plants, care tasks, marketplace, …) become new modules that import `AuthModule` for
+Future areas (care tasks, marketplace, …) become new modules, as plants did, that import `AuthModule` for
 `SessionAuthGuard` / `@CurrentUser()` and use `PrismaService`.
 
 ## Request pipeline
@@ -73,10 +74,22 @@ What exists today:
   session by `SessionAuthGuard`. There is no `:id` parameter, so one user cannot address another user's
   record. Logout deletes only the presented session.
 
-Not implemented yet: ownership checks for user-owned resources. The first such resource will be plants;
-the proposed rules (user id taken from the session only, owner-scoped database queries, identical 404 for
-"missing" and "not yours", no role bypass) are **proposals** in
-[04-plant-management-decision-review.md](04-plant-management-decision-review.md#5-ownership-and-authorization-rules-engineering-proposal).
+### Plant ownership (implemented, provisional scope)
+
+Plants are the first user-owned resource (`POST`/`GET /plants`, `GET`/`PATCH /plants/:id`). Rules enforced
+in code and covered by integration tests:
+
+- `userId` comes **only** from the authenticated session (`@CurrentUser()`); request bodies are strict
+  Zod schemas, so `userId`, `id`, `status`, timestamps or any unknown field are rejected with 422.
+- Every query is scoped by owner **inside the database call** (`findFirst({ where: { id, userId } })`,
+  `update({ where: { id, userId } })`, list and count filtered by `userId`); there is no fetch-then-compare.
+- A plant that does not exist, a plant owned by another user, and a malformed id all return the same
+  `404 NOT_FOUND` ("Plant not found"), so existence is not leaked.
+- No role bypass: an `ADMIN` gets the same 404 for other users' plants.
+- The foreign key `Plant.userId → User.id` is `ON DELETE RESTRICT`: a user who owns plants cannot be deleted
+  until an account-deletion and retention policy is approved (D7). No user-deletion endpoint exists today.
+- No `DELETE /plants/:id` exists (PM-6). The field set and limits are provisional engineering assumptions;
+  see [04-plant-management-decision-review.md](04-plant-management-decision-review.md).
 
 ## Security controls
 
@@ -94,9 +107,16 @@ the proposed rules (user id taken from the session only, owner-scoped database q
 ```
 User(id uuid pk, email unique ≤254, passwordHash, name ≤80, role USER|ADMIN default USER, createdAt, updatedAt)
 Session(id uuid pk, tokenHash char(64) unique, userId → User cascade, expiresAt, createdAt)   idx: userId, expiresAt
+Plant(id uuid pk, userId → User RESTRICT, name ≤80 required, species ≤120 null, location ≤80 null, notes text null (≤1000 validated), createdAt, updatedAt)   idx: (userId, createdAt)
 ```
 
 Emails are lower-cased and trimmed before storage, so uniqueness is case-insensitive.
+
+`Plant` is a **provisional** model: the field set and the length limits are engineering assumptions, not
+product-owner-approved requirements. There is no `deletedAt` (soft deletion is not approved), the `notes`
+limit is enforced by validation rather than the column type, and `Plant.userId` uses `ON DELETE RESTRICT`
+(not `CASCADE`) until an account-deletion and retention policy exists. Relationships: one `User` has many
+`Session`s (deleted with the user) and many `Plant`s (they block deleting the user).
 
 ## Testing strategy
 
@@ -104,7 +124,10 @@ Unit tests (no DB): password hashing, token hashing, Zod schemas, env validation
 token extraction, test-database safety. Integration tests (real PostgreSQL, isolated `*_test`
 database, real HTTP via `fetch` against a listening app): every endpoint, persistence assertions by
 querying Prisma directly, expiry by rewriting `expiresAt`, logout invalidation, the three rate-limit
-windows, malformed cookies, legacy password-hash upgrade, CORS, CSRF, OpenAPI contents. Run commands and
+windows, malformed cookies, legacy password-hash upgrade, CORS, CSRF, OpenAPI contents, and for plants:
+authentication (missing, invalid, expired, logged-out sessions), validation, mass-assignment rejection,
+owner-only reads and writes between two users, the ADMIN non-bypass, pagination and ordering, the
+database foreign-key rule and index, and the absence of any DELETE. Run commands and
 current counts: [server README](../README.md#tests).
 
 ## CI (GitHub Actions)
@@ -117,7 +140,8 @@ to `main` and `development` (a push to any other branch does not start it).
 | `check` | `pnpm check`: Prisma generate, unit tests, typecheck (web + API), build (web + API) | None. A placeholder `DATABASE_URL` is set because `prisma.config.ts` requires one to load |
 | `api-integration` | `pnpm --dir server prisma:generate` then `pnpm --dir server test:e2e` | PostgreSQL 17 service container; the harness creates `leaf_and_root_test` and applies every migration |
 
-Evidence (GitHub Actions run 45311513292 on the fork's draft PR, head `799da46`): `check` passed
+Evidence (GitHub Actions run 45311513292 on the fork's draft PR, head `799da46`, which **predates the Plant
+module; CI has not yet run on it**): `check` passed
 (30 unit tests, frontend and API builds) and `api-integration` passed (51 tests). An earlier run failed in
 `check` because `DATABASE_URL` was missing; that was fixed without changing any test. The workflow change
 exists on the feature branch only until it is merged, so the upstream `main`/`development` do not run

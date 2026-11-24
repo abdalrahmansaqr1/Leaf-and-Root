@@ -10,10 +10,10 @@ details: [architecture](architecture.md), [API contracts](api-contracts.md),
 
 | Item | State |
 |---|---|
-| Implemented backend | Health, authentication (register, login, logout, `GET /auth/me`), user profile name (`GET`/`PATCH /users/me`). No other endpoints. |
-| Frontend | Static prototype; only login and sign-up call the API (`/api/v1/auth/*`). |
-| Plant Management | Reviewed, **not started**. Create/list/view/edit can proceed; delete is blocked on PM-6. |
-| CI | Green on the fork's draft PR (evidence below) |
+| Implemented backend | Health, authentication (register, login, logout, `GET /auth/me`), user profile name (`GET`/`PATCH /users/me`), and the initial plant subset (`POST`/`GET /plants`, `GET`/`PATCH /plants/:id`). No other endpoints. |
+| Frontend | Static prototype; only login and sign-up call the API (`/api/v1/auth/*`). No screen uses the plant API; the frontend was not modified. |
+| Plant Management | Initial subset **implemented, provisional** (session 3). **Not complete**: `DELETE` is blocked on PM-6; fields/limits are engineering assumptions. |
+| CI | Green on the fork's draft PR for the foundation (head `799da46`). **Not yet run on the plant module** (it exists only on a local branch). |
 | Requirements sources | Original SRS/DFD, Flutter, AI and IoT specs are **unavailable** and were **not** reviewed |
 
 ## Git state
@@ -23,7 +23,8 @@ details: [architecture](architecture.md), [API contracts](api-contracts.md),
 | `development` | Untouched (local and on the fork, `a680f32`) |
 | `feature/backend-foundation-auth` | Pushed to the owner's fork only (`abdalrahmansaqr1/Leaf-and-Root`, a fork of `yasminekamel219-maker/Leaf-and-Root`). Head at last verification: `799da46`, equal local and remote |
 | Draft PR #1 on the fork | `feature/backend-foundation-auth` → fork `development`. Open, **draft, not merged**; opened only because CI triggers on `pull_request`, not on feature-branch pushes |
-| `docs/session-2-plant-requirements` | **Local only.** Holds the session-2 and documentation-session changes; see the session 3 entry for its commit status |
+| `docs/session-2-plant-requirements` | **Local only.** Documentation consolidation, commit `4a171a4` (on top of `799da46`) |
+| `feature/plant-management-crud` | **Local only**, created from `4a171a4`. Holds the Plant Management implementation (session 3); see that entry for its commit status |
 
 Nothing was pushed to `upstream`, merged or deployed.
 
@@ -97,13 +98,44 @@ and marked D15 (PostgreSQL integration tests in CI) implemented and verified in 
 (run 45311513292), **not yet merged into `development`**. No code or schema changes. See
 [04-plant-management-decision-review.md](04-plant-management-decision-review.md).
 
-## Session 3 — Documentation consolidation (docs only)
+## Session 2b — Documentation consolidation (docs only)
 
 Audited and updated all backend and root documentation against the implementation, folded the readiness
 report into the Plant Management review (deleting the duplicate file), added CI, ownership, AI/IoT and
 deployment sections to [architecture.md](architecture.md), and verified every setup command on a fresh clone.
-Changes are on the local branch `docs/session-2-plant-requirements`; the quality-gate results are recorded
-in the final report of that session, and the diff must be reviewed before any commit. No push.
+Committed locally as `4a171a4` on `docs/session-2-plant-requirements`. No push.
+
+## Session 3 — Plant Management, initial CRUD subset (provisional)
+
+Branch `feature/plant-management-crud` (local, from `4a171a4`). Implemented in `server/src/plants/`:
+`POST /plants`, `GET /plants` (`limit`, `offset`, `meta.total`), `GET /plants/:id`, `PATCH /plants/:id`;
+Prisma model `Plant` and migration `20261124032335_add_plant` (index `(userId, createdAt)`, foreign key
+`ON DELETE RESTRICT`, no `deletedAt`); shared `parseQuery` helper next to `parseBody`; OpenAPI schemas.
+Contract and rules: [api-contracts](api-contracts.md#plants-provisional-initial-subset),
+[architecture](architecture.md#plant-ownership-implemented-provisional-scope). **Not implemented:**
+`DELETE` (PM-6), plant limit, species catalogue, care schedules, photos, AI, IoT, notifications.
+
+Tests were written first and run red (schema unit file failed on the missing module; 62 e2e tests failed),
+then green after the implementation. A mutation check (removing the `userId` scope from `get` and `update`)
+made 3 ownership tests fail, and restoring it made all pass.
+
+| Check | Result (run locally 2026-11-24) |
+|---|---|
+| `tsc --noEmit` | clean |
+| Unit tests | **79 / 79** (8 files; was 30) |
+| Integration tests | **114 / 114** (6 files; was 51); new: 63 across `plants.e2e-spec.ts` and `plants-ownership.e2e-spec.ts` |
+| `pnpm check` (generate, unit, typecheck web+api, build web+api) | exit 0 |
+| `prisma migrate status` on the dev database | 3 migrations, up to date; `migrate diff` against the schema: no difference |
+| `db:deploy` on a brand-new scratch database | 3 migrations applied; table, index and `ON DELETE RESTRICT` confirmed in `psql`; database dropped |
+| Direct API smoke test, two users, built server on the dev database | A created/listed/updated own plant; B listed 0 plants, got 404 on A's plant for GET and PATCH, 404 for DELETE, 422 for `userId` in the body; anonymous list 401; OpenAPI lists only `/api/v1/plants` and `/api/v1/plants/{id}` |
+| Existing authentication tests | still pass (part of the 114) |
+
+An earlier version of the smoke script had a path bug (empty plant id), so its output was discarded and the
+smoke test was rerun with a corrected script; only the rerun is reported. The existing OpenAPI test in
+`app.e2e-spec.ts` lists every path exactly; the two plant paths were added to its expected list (an
+extension, not a relaxation). The frontend build is part of `pnpm check` and passed; no frontend file changed.
+Smoke users `smoke-a-…@example.com` and `smoke-b-…@example.com` and one plant remain in the dev database.
+**CI has not run on this work.** See [04-plant-management-decision-review.md §10](04-plant-management-decision-review.md#10-session-3-outcome-what-was-implemented-and-where-it-differs-from-the-proposals).
 
 ## Known limitations and remaining risks
 
@@ -119,24 +151,29 @@ in the final report of that session, and the diff must be reviewed before any co
 - The e2e config raises `AUTH_RATE_LIMIT_IP/ACCOUNT` to 1000; the hardening spec tests the real windows.
 - Requirements sources are unavailable (above); D1–D16 are unresolved, see [decisions](assumptions-and-pending-decisions.md).
 
-## Recommended next implementation task
+## Recommended next backend task
 
-**Plant CRUD without delete**: `Plant` model + migration (`id`, `userId`, `name` required, `species`,
-`location`, `notes` optional, timestamps; **no `deletedAt`**), then `POST/GET /plants`, `GET/PATCH /plants/:id`
-with owner-scoped queries and identical 404 for "missing" and "not yours", tests first. Hold
-`DELETE /plants/:id` until PM-6 is decided. Scope and rules: [04-plant-management-decision-review.md §8](04-plant-management-decision-review.md#8-implementation-ready-recommendation).
+1. Get the owner's decision on **PM-6** (hard vs soft deletion, D7 retention) and confirm the provisional
+   plant fields; then implement `DELETE /plants/:id` (and `deletedAt` only if soft deletion is chosen) with
+   the matching tests and the `Plant.userId` foreign-key decision.
+2. Push the plant branch (owner's decision) so CI runs the new tests; CI evidence for the plant module does
+   not exist yet.
+3. Then, depending on decisions: care tasks (PM-3/PM-4), photo submission (D12), or the auth decisions
+   (D1, D2, D5).
 
 ## Handoff for the next Claude Code session
 
-1. **Read first:** this file, then [04-plant-management-decision-review.md](04-plant-management-decision-review.md),
+1. **Read first:** this file, then [04-plant-management-decision-review.md](04-plant-management-decision-review.md)
+   (section 10 lists where the implementation differs from the proposals),
    [assumptions-and-pending-decisions.md](assumptions-and-pending-decisions.md), [architecture.md](architecture.md).
 2. **Environment:** follow [server/README.md](../README.md#run-locally). Docker Desktop must be running; if the
    dev database is missing, `docker compose up -d postgres` then `pnpm --dir server db:deploy`.
-3. **Git:** decide with the owner how the docs branch and the feature branch land (see the integration plan in
-   the session 3 report). Do not push, merge, deploy or touch `development` without explicit approval.
+3. **Git:** three local/remote lines of work exist (foundation branch pushed to the fork; docs branch and plant
+   branch local). Decide with the owner how they land, stacked in order foundation → docs → plants. Do not
+   push, merge, deploy or touch `development` without explicit approval.
 4. **Rules that still apply:** backend only; no unapproved business rules; do not describe unrun tests as
    passing; the SRS/DFD are unavailable, so cite them only when the files are provided; keep AI, IoT, photos,
-   scheduling, reminders and marketplace out of the Plant CRUD session.
+   scheduling, reminders and marketplace out of plant work; do not mark Plant Management complete.
 5. **Conventions to follow:** `/api/v1`, `{data}`/`{error}` envelopes, strict Zod schemas via `parseBody`,
    `SessionAuthGuard` + `@CurrentUser()`, OpenAPI decorators, integration tests against the isolated test DB.
 6. **Done means:** `pnpm check` and `pnpm --dir server test:e2e` pass locally, CI green, docs and the

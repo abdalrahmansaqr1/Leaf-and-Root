@@ -19,16 +19,23 @@ Status values: **Implemented** (code + tests, evidence cited) · **Per brief —
 | REQ-AU-06 | Users cannot assign privileged roles | Session 1 brief | `role` not exposed or writable | e2e (422 on `role`) | Implemented |
 | REQ-AU-07 | Email verification, password reset, OAuth, subscriptions, advanced RBAC | Session 1 brief: explicitly deferred | — | — | Pending decisions D1, D2, D3, D5, D6 |
 
-## B. Plant Management (reviewed in session 2; nothing implemented)
+## B. Plant Management (initial subset implemented in session 3; **not complete**)
 
-| Req | Statement | Source | Planned endpoint (proposal) | Planned verification | Status |
+Implementation and tests: `server/src/plants/` (`plants.schemas.spec.ts` unit; `plants.e2e-spec.ts`,
+`plants-ownership.e2e-spec.ts` integration). Evidence: unit 79/79 and integration 114/114 run locally on
+2026-11-24 (branch `feature/plant-management-crud`); **CI has not yet run on this module**. The source
+citation for REQ-PL-01..05 is still "per brief; SRS citation pending" (the SRS/DFD files are unavailable).
+The field set is **provisionally accepted** (`name` required; `species`, `location`, `notes` optional) as an
+engineering assumption, not a final product-owner-approved requirement.
+
+| Req | Statement | Source | Endpoint | Verification | Status |
 |---|---|---|---|---|---|
-| REQ-PL-01 | Add a plant with basic information | Per brief; SRS citation pending | `POST /plants` | 04-doc §6 tests 1–2, 11 | Per brief — not implemented. Fields `name` (required), `species`/`location`/`notes` (optional) **provisionally accepted** as an engineering assumption; final product-owner confirmation pending. **Next to implement** |
-| REQ-PL-02 | View the user's plants | Per brief; SRS citation pending | `GET /plants` | tests 3, 9 | Per brief — not implemented |
-| REQ-PL-03 | View plant details | Per brief; SRS citation pending | `GET /plants/:id` | tests 4–6, 9 | Per brief — not implemented |
-| REQ-PL-04 | Edit plant information | Per brief; SRS citation pending | `PATCH /plants/:id` | tests 5, 7, 9 | Per brief — not implemented |
-| REQ-PL-05 | Delete a plant | Per brief; SRS citation pending | `DELETE /plants/:id` | tests 5, 8, 9 | Per brief — not implemented. **Blocked**: hard vs soft deletion not approved (PM-6) |
-| REQ-PL-06 | Users see/modify only their own plants | Engineering proposal (security baseline), consistent with REQ-AU-06 | Scoped queries, uniform 404 | tests 5, 10, 11 | Proposal — needs confirmation |
+| REQ-PL-01 | Add a plant with basic information | Per brief; SRS citation pending | `POST /plants` | e2e: create, validation, mass-assignment; unit: schemas | **Implemented (provisional fields)** |
+| REQ-PL-02 | View the user's plants | Per brief; SRS citation pending | `GET /plants` (`limit`, `offset`, `meta.total`) | e2e: own-only listing, ordering, pagination, query validation | **Implemented (provisional)** |
+| REQ-PL-03 | View plant details | Per brief; SRS citation pending | `GET /plants/:id` | e2e: owned 200; foreign, missing and malformed id → identical 404 | **Implemented (provisional)** |
+| REQ-PL-04 | Edit plant information | Per brief; SRS citation pending | `PATCH /plants/:id` | e2e: partial update, null clearing, empty body, forbidden fields, cross-user attempts | **Implemented (provisional)** |
+| REQ-PL-05 | Delete a plant | Per brief; SRS citation pending | none (route intentionally absent) | e2e: `DELETE` → 404 and row kept; OpenAPI has no delete | **Not implemented — blocked**: hard vs soft deletion not approved (PM-6) |
+| REQ-PL-06 | Users see/modify only their own plants | Engineering proposal (security baseline), consistent with REQ-AU-06 | all four | e2e: two-user isolation, ADMIN non-bypass, 401 matrix, DB foreign key `RESTRICT` and index | **Implemented**; needs product-owner confirmation |
 
 Frontend-only statements (**not** requirements): "Free for up to 10 plants" (`src/pages/AuthPages.tsx:228`),
 sample `PlantSpecimen` fields and values (`src/types/index.ts`, `src/data/siteData.ts`), status/next-action text.
@@ -46,7 +53,7 @@ sample `PlantSpecimen` fields and values (`src/types/index.ts`, `src/data/siteDa
 | Care scheduling and history | Undefined in requirements (PM-3, PM-4) |
 | Plant photo storage and moderation | Undefined in requirements (PM-5, D12) |
 | Species catalogue | Undefined in requirements (PM-2) |
-| Deletion retention | Undefined in requirements (PM-6, D7) |
+| Deletion retention | Undefined in requirements (PM-6, D7). Until decided, `Plant.userId` is `ON DELETE RESTRICT` and there is no delete endpoint |
 
 ## D. Decision ledger
 

@@ -3,8 +3,10 @@
 NestJS 12 · Prisma 7 · PostgreSQL 17 · REST under `/api/v1` · OpenAPI at `/api/docs`.
 
 This is the backend for Leaf & Root. **Implemented today:** health check, authentication (register,
-login, logout, current user) and the user's profile name. Everything else (plants, care tasks, photos,
-AI, IoT, notifications, marketplace, community) is **not implemented**; see the status table in the
+login, logout, current user), the user's profile name, and an **initial, provisional Plant Management
+subset** (create, list, view, update the user's own plants). Plant **deletion is not implemented** (its
+semantics are not approved, PM-6). Everything else (care tasks, photos, AI, IoT, notifications,
+marketplace, community) is **not implemented**; see the status table in the
 [root README](../README.md#module-status).
 
 > The original brief suggested a `backend/` folder. The repository already had a wired-up `server/`
@@ -25,7 +27,7 @@ From the **repository root** (commands work in PowerShell and bash). Each step l
 | 1. Install | `pnpm install --frozen-lockfile` | Finishes with `Done in …` and no errors |
 | 2. Database | `docker compose up -d postgres` | Container `leaf-and-root-postgres-1` becomes `healthy` (host port `5434`) |
 | 3. Config | `cp server/.env.example server/.env` | `server/.env` exists (git-ignored) |
-| 4. Migrate | `pnpm --dir server db:deploy` | `2 migrations found` then `All migrations have been successfully applied.` (or `No pending migrations to apply.` on an up-to-date database) |
+| 4. Migrate | `pnpm --dir server db:deploy` | `3 migrations found` then `All migrations have been successfully applied.` (or `No pending migrations to apply.` on an up-to-date database) |
 | 5. Client | `pnpm --dir server prisma:generate` | `Generated Prisma Client (7.10.1)` into `server/src/generated/prisma` |
 | 6. API | `pnpm dev:api` | Log line `Nest application successfully started`; API on `http://localhost:3001` |
 | 7. Web (optional) | `pnpm dev` | React app on `http://localhost:8443`, proxying `/api` to the API |
@@ -37,8 +39,10 @@ Verify: `GET http://localhost:3001/api/v1/health` returns `{"data":{"status":"ok
 Production-style start (built output): `pnpm --dir server build` then `pnpm --dir server start`
 (runs `node dist/main.js`; needs `DATABASE_URL` in the environment or `server/.env`).
 
-All commands above were run on a fresh clone of the repository on 2026-11-24 (Windows, Node 24,
-pnpm 10.33, PostgreSQL 17 in Docker). Not tested: running with `NODE_ENV=production` behind HTTPS,
+All commands above were run on a fresh clone of the repository on 2026-11-24 at commit `799da46`
+(Windows, Node 24, pnpm 10.33, PostgreSQL 17 in Docker). After the Plant migration was added,
+`db:deploy` was re-verified on a brand-new database (3 migrations applied) but the full fresh-clone
+sequence was not repeated. Not tested: running with `NODE_ENV=production` behind HTTPS,
 Linux/macOS local setup (CI covers Linux for build and tests only).
 
 ### Troubleshooting
@@ -74,7 +78,8 @@ reads `PORT` (default `8443`) and `API_PROXY_TARGET` (default `http://127.0.0.1:
 
 Schema: [`prisma/schema.prisma`](prisma/schema.prisma); models are described in
 [architecture](docs/architecture.md#data-model). Committed migrations live in [`prisma/migrations`](prisma/migrations):
-`init` (User, Session) and `add_user_role` (`UserRole` enum + `User.role`, default `USER`).
+`init` (User, Session), `add_user_role` (`UserRole` enum + `User.role`, default `USER`) and `add_plant`
+(`Plant` table, index on `(userId, createdAt)`, foreign key to `User` with `ON DELETE RESTRICT`).
 
 ```bash
 pnpm --dir server db:deploy    # apply committed migrations (prisma migrate deploy); safe for CI/shared DBs
@@ -91,8 +96,9 @@ pnpm --dir server test:e2e    # integration tests against PostgreSQL (step 2 fir
 pnpm check                    # from the repo root: generate, unit, typecheck (web + API), build (web + API)
 ```
 
-Expected results on 2026-11-24 (commit `799da46`): unit **30 passed** (7 files), integration **51 passed**
-(4 files), `pnpm check` exit code 0. These counts change as tests are added.
+Expected results on 2026-11-24 (branch `feature/plant-management-crud`, before its commit): unit **79 passed**
+(8 files), integration **114 passed** (6 files), `pnpm check` exit code 0. These counts change as tests
+are added. (The earlier foundation run in CI was 30 unit / 51 integration.)
 
 `test:e2e` creates and migrates a separate `<name>_test` database automatically; the harness refuses any
 database that is not local or whose name does not end in `_test`
@@ -111,6 +117,7 @@ src/
   prisma/      PrismaService (global)
   auth/        register / login / logout / me, scrypt, session tokens, SessionAuthGuard, rate limits
   users/       GET/PATCH /users/me
+  plants/      POST/GET /plants, GET/PATCH /plants/:id (provisional; no DELETE)
   test/        test database + HTTP helpers
   generated/   Prisma client (git-ignored)
 prisma/        schema + migrations
