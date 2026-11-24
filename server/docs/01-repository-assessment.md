@@ -1,5 +1,11 @@
 # 01 — Repository & Requirements Assessment
 
+> **Historical snapshot.** This describes the repository as found at the start of session 1 (before
+> the foundation work). Statements such as "10 unit + 3 e2e tests", "`GET /api/health`", "one CI job
+> with no Postgres service" and the gaps table in section 4 describe that **baseline**, not today's
+> state. For the current state see the [server README](../README.md), [architecture](architecture.md) and
+> the [handoff](session-01-handoff.md).
+
 Date: 2026-11-24 · Branch: `development` · Scope: backend only (session 1)
 
 ## 1. Key finding: a backend slice already exists
