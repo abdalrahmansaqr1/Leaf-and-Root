@@ -3,7 +3,7 @@ import { getEnv } from "../config/env.js";
 import { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
-import { hashPassword, verifyPassword } from "./password.js";
+import { hashPassword, needsRehash, verifyPassword } from "./password.js";
 import { createSessionToken, hashSessionToken } from "./session-token.js";
 
 const dummyPasswordHash = hashPassword("dummy password used only to equalize login work");
@@ -71,6 +71,16 @@ export class AuthService {
       record?.passwordHash ?? (await dummyPasswordHash),
     );
     if (!record || !isValid) throw new UnauthorizedException("Invalid email or password");
+
+    // Transparently upgrade hashes created with weaker scrypt parameters. The password was just
+    // verified, so this is the only moment the plaintext is available to re-hash.
+    if (needsRehash(record.passwordHash)) {
+      await this.prisma.user.update({
+        where: { id: record.id },
+        data: { passwordHash: await hashPassword(input.password) },
+        select: { id: true },
+      });
+    }
 
     const token = createSessionToken();
     // Opportunistic cleanup keeps the Session table bounded without a scheduler.

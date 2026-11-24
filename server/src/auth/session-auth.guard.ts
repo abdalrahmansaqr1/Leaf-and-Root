@@ -25,7 +25,12 @@ export function extractSessionToken(request: Pick<Request, "headers">): string |
   for (const part of cookieHeader.split(";")) {
     const index = part.indexOf("=");
     if (index > 0 && part.slice(0, index).trim() === SESSION_COOKIE) {
-      return decodeURIComponent(part.slice(index + 1).trim());
+      try {
+        return decodeURIComponent(part.slice(index + 1).trim());
+      } catch {
+        // A malformed cookie is simply "no credentials" (401 / no-op logout), never a 500.
+        return undefined;
+      }
     }
   }
   return undefined;

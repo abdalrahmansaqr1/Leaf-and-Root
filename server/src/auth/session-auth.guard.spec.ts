@@ -31,6 +31,13 @@ describe("extractSessionToken", () => {
     ).toBeUndefined();
   });
 
+  it("treats a cookie with invalid percent-encoding as no credentials instead of throwing", () => {
+    expect(
+      extractSessionToken(request({ cookie: "leaf_root_session=%E0%A4%A" })),
+    ).toBeUndefined();
+    expect(extractSessionToken(request({ cookie: "leaf_root_session=%" }))).toBeUndefined();
+  });
+
   it("returns undefined without credentials or with a similarly named cookie", () => {
     expect(extractSessionToken(request({}))).toBeUndefined();
     expect(extractSessionToken(request({ cookie: "xleaf_root_session=nope" }))).toBeUndefined();

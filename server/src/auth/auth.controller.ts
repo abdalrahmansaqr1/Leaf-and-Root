@@ -11,7 +11,6 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { HttpAdapterHost } from "@nestjs/core";
-import { minutes, Throttle } from "@nestjs/throttler";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -39,6 +38,7 @@ import {
   userEnvelopeOpenApiSchema,
 } from "../common/openapi.js";
 import { loginSchema, registerSchema } from "./auth.schemas.js";
+import { AuthAttempt } from "./auth-rate-limit.js";
 import { AuthService, type PublicUser } from "./auth.service.js";
 import {
   CurrentUser,
@@ -72,7 +72,7 @@ export class AuthController {
   ) {}
 
   @Post("register")
-  @Throttle({ default: { limit: 5, ttl: minutes(15) } })
+  @AuthAttempt()
   @ApiOperation({ summary: "Create an account and start a session" })
   @ApiHeader(transportHeader)
   @ApiBody({ schema: toOpenApiSchema(registerSchema) })
@@ -91,7 +91,7 @@ export class AuthController {
 
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: minutes(15) } })
+  @AuthAttempt()
   @ApiOperation({ summary: "Verify credentials and start a session" })
   @ApiHeader(transportHeader)
   @ApiBody({ schema: toOpenApiSchema(loginSchema) })

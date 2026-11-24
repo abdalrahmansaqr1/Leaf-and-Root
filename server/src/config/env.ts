@@ -23,6 +23,10 @@ const envSchema = z.object({
     }),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** Register/login attempts per client IP per 15 minutes (any email). Caps credential stuffing. */
+  AUTH_RATE_LIMIT_IP: z.coerce.number().int().min(1).max(10_000).default(20),
+  /** Register/login attempts per email per 15 minutes across all IPs. Caps distributed guessing. */
+  AUTH_RATE_LIMIT_ACCOUNT: z.coerce.number().int().min(1).max(10_000).default(30),
   /** Comma-separated list of allowed browser origins. Empty disables CORS. */
   CORS_ALLOWED_ORIGINS: z
     .string()
