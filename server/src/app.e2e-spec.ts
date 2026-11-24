@@ -58,6 +58,8 @@ describe("application foundation", () => {
           "/api/v1/auth/me",
           "/api/v1/auth/register",
           "/api/v1/health",
+          "/api/v1/plants",
+          "/api/v1/plants/{id}",
           "/api/v1/users/me",
         ].sort(),
       );

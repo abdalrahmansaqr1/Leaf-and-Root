@@ -34,6 +34,11 @@ Confirmed by the session brief and/or visible in the frontend UI:
 | P13 | Web app is a same-origin client via the Vite proxy; CORS off by default | `create-app.ts` | Config |
 | P14 | Auth rate limits per 15 min: 5 per email+IP (fixed), 20 per IP and 30 per email (configurable) | `auth-rate-limit.ts`, `env.ts` | Config |
 | P15 | scrypt N=2^16, r=8, p=2 with rehash-on-login (argon2id still pending, D10) | `password.ts` | Low |
+| P16 | Plant fields: `name` required; `species`, `location`, `notes` optional (provisionally accepted as "basic information"; not final product approval) | `schema.prisma`, `plants.schemas.ts` | Low (add/rename column) |
+| P17 | Plant length limits: name ≤ 80, species ≤ 120, location ≤ 80, notes ≤ 1000 (notes limit enforced by validation, column is `text`); text trimmed; empty string invalid, `null` = no value / clears | `plants.schemas.ts` | Low |
+| P18 | Plant list: `limit` 1–100 (default 50), `offset` ≥ 0, newest first (`createdAt` desc, `id` asc), `meta.total` | `plants.schemas.ts`, `plants.service.ts` | Low |
+| P19 | A missing plant, another user's plant and a malformed id all return the same 404; `ADMIN` has no ownership bypass | `plants.service.ts` | Low |
+| P20 | `Plant.userId` is `ON DELETE RESTRICT` (not `CASCADE`) and there is no `deletedAt`, until PM-6 and D7 are decided | `schema.prisma`, migration `add_plant` | Low–medium |
 
 ## C. Pending decisions (need product/owner input; **not implemented**)
 
@@ -68,10 +73,10 @@ corresponding Plant operation can be implemented.
 | PM-3 | Care tasks and scheduling | Undefined in requirements | Defer; no schedule fields on `Plant` | No |
 | PM-4 | Care history and retention | Undefined; depends on PM-3, D7 | Defer | No |
 | PM-5 | Plant photos | Undefined; see D12 | No image field; no arbitrary URLs | No |
-| PM-6 | Deletion semantics (hard vs soft; retention) | Operation per brief; semantics **not approved** | Engineering leaning: hard delete, **not approved**; alternatives in the review | **Only the delete operation** (create/list/view/edit can proceed) |
+| PM-6 | Deletion semantics (hard vs soft; retention) | Operation per brief; semantics **not approved** | Engineering leaning: hard delete, **not approved**; alternatives in the review. `DELETE /plants/:id` is **not implemented** | **Only the delete operation** (create/list/view/edit are implemented, provisionally) |
 | PM-7 | Notifications / reminders | Separate capability | Out of scope | No |
 | PM-8 | Device-to-plant mapping | Separate capability; undefined | Out of scope; stable `Plant.id` | No |
-| PM-F | Definition of "basic information" (Plant fields) | Undefined in requirements. **Provisionally accepted by the team** as an engineering assumption: `name` required; `species`, `location`, `notes` optional. Not final product-owner approval | Provisional; final confirmation pending | No |
+| PM-F | Definition of "basic information" (Plant fields) | Undefined in requirements. **Provisionally accepted by the team** as an engineering assumption: `name` required; `species`, `location`, `notes` optional. Not final product-owner approval | Implemented provisionally (P16, P17); final confirmation pending | No |
 
 ## D. Unavailable sources
 SRS/PRD, Flutter app spec, AI service spec, IoT/hardware spec, any API design docs, any Figma
