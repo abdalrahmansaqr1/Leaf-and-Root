@@ -1,7 +1,24 @@
 # Session 1 handoff — backend foundation & authentication
 
 Date: 2026-11-24 · Branch `feature/backend-foundation-auth` (cut from `development`) ·
-**Local commits only. Nothing pushed, merged or deployed.**
+**Pushed to the owner's fork only** (`abdalrahmansaqr1/Leaf-and-Root`, a fork of
+`yasminekamel219-maker/Leaf-and-Root`). Nothing pushed to upstream, merged or deployed.
+A **draft PR inside the fork** (`feature/backend-foundation-auth` → fork `development`, PR #1) exists only
+because the workflow runs on `pull_request`/pushes to main+development, not on feature-branch pushes.
+It must not be merged.
+
+## CI evidence (GitHub Actions on the fork, run 45311142969, head `14f2ea7`)
+
+| Job | Result | Detail |
+|---|---|---|
+| `check` (`pnpm check`: generate, unit, typecheck web+api, build web+api) | **pass** (21 s) | 30/30 unit tests; frontend (Vite) build passed |
+| `API integration tests (PostgreSQL)` | **pass** (46 s) | 51/51 e2e tests, 4 files, isolated `leaf_and_root_test` DB, migrations applied from scratch |
+
+History: the first run (head `25550bb`) **failed** in `check`: `prisma generate` needs `DATABASE_URL` (locally
+supplied by the gitignored `server/.env`). The Postgres job passed on that run. Fix `14f2ea7` sets a
+placeholder `DATABASE_URL` on the database-free job; no test was changed, skipped or weakened. The remote
+branch head equals the local head (`14f2ea7d683b6ccfa1744b54a83885d9e01ec3e6`, checked with `git ls-remote`).
+GitHub Actions is enabled on the fork (`allowed_actions: all`).
 
 ## Commits (local)
 
@@ -9,7 +26,9 @@ Date: 2026-11-24 · Branch `feature/backend-foundation-auth` (cut from `developm
 |---|---|
 | `fbcc681` | Checkpoint: backend foundation + authentication, tests, docs (62 files) |
 | `336c209` | CI Postgres job; auth rate-limit redesign; scrypt upgrade with rehash-on-login; malformed-cookie 500 fix |
-| tip of the branch (`git log -1`) | This handoff, security review doc, timing fix, doc updates |
+| `25550bb` | This handoff, security review doc, timing fix, doc updates |
+| `14f2ea7` | CI fix: placeholder `DATABASE_URL` for the `check` job |
+| tip of the branch (`git log -1`) | Handoff update with CI results |
 
 `development` itself was not modified. Not committed on purpose: `.claude/launch.json` (local tool state).
 Pre-existing uncommitted work (`server/` baseline, `compose.yaml`, `pnpm-workspace.yaml`, `vite.config.ts`
@@ -39,9 +58,8 @@ Extended the existing `server/` app (see `01-repository-assessment.md` for why n
 | CI simulation: e2e against a brand-new database name (`ci_sim` → `ci_sim_test`, all migrations from scratch) | 43 / 43 at that time (before the hardening tests were added) |
 | New tests were red before the fix | malformed-cookie unit test failed with `URIError` before the fix |
 
-**CI itself has not run** (nothing pushed). The `api-integration` job is a new workflow section that
-mirrors the commands verified locally; its YAML was not parsed by a validator here, so the first run on
-GitHub is the real check. The job uses a disposable `postgres:postgres` service credential.
+CI has now run on GitHub (see the CI evidence section above). The `api-integration` job uses a disposable
+`postgres:postgres` service credential.
 
 ### Real-browser verification (React frontend on :8443 → Vite proxy → API :3001, manual run in the in-app browser)
 
@@ -91,7 +109,8 @@ it during the first run; I did not repeat it); a `Secure` cookie over real HTTPS
 
 ## Recommended next session
 
-1. Push the branch (owner's decision) and confirm the new `api-integration` job is green on GitHub.
+1. Owner decides how to land this work (the draft fork PR #1 is only a CI vehicle; no merge was done).
+   Consider adding `feature/**` to the workflow's push triggers.
 2. Decide D1/D2/D5/D9 with the product owner (email verification, reset, roles, enumeration policy).
 3. Provide the SRS/DFD so requirements can be reconciled; then start the plant-care core
    (plants collection with ownership checks, care tasks and history). **Plant Management was not started.**
