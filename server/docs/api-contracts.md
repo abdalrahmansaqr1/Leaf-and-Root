@@ -10,6 +10,14 @@ Base path `/api/v1`. The authoritative, machine-readable contract is the OpenAPI
 - Auth: browsers use the `leaf_root_session` HttpOnly cookie; native clients send
   `Authorization: Bearer <token>` (obtain it by sending `X-Auth-Transport: bearer` to register/login).
 - Timestamps are ISO-8601 UTC. IDs are UUIDs.
+- Rate limits: register and login share three 15-minute windows: 5 per email+IP, `AUTH_RATE_LIMIT_IP`
+  (default 20) per IP, `AUTH_RATE_LIMIT_ACCOUNT` (default 30) per email. Every other route is limited to
+  100 requests/minute per IP (health is exempt). Exceeding a limit returns `429 RATE_LIMITED`.
+  Rationale: [02-security-review.md](02-security-review.md#3-authentication-rate-limits).
+- All paths below are relative to `/api/v1`. Implemented routes: `GET /health`, `POST /auth/register`,
+  `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`, `GET /users/me`, `PATCH /users/me`
+  (matches the OpenAPI document; checked against `/api/docs-json` on 2026-11-24). There are no plant,
+  care-task, photo, AI or IoT endpoints.
 
 `User` (public): `{ id, email, name, createdAt, updatedAt }`. `role` and `passwordHash` never appear.
 
@@ -29,10 +37,6 @@ Base path `/api/v1`. The authoritative, machine-readable contract is the OpenAPI
 
 ### `GET /health` — public
 `200 { "data": { "status": "ok", "database": "up" } }` · `503` when the DB is unreachable.
-
-Register and login share three 15-minute windows: 5 per email+IP, `AUTH_RATE_LIMIT_IP` (default 20) per
-IP, and `AUTH_RATE_LIMIT_ACCOUNT` (default 30) per email. Exceeding any returns `429 RATE_LIMITED`.
-See [02-security-review.md](02-security-review.md).
 
 ### `POST /auth/register` — public, rate-limited (see above)
 Body: `{ "email": string (valid, ≤254), "password": string (10–128), "name": string (2–80, trimmed) }`.

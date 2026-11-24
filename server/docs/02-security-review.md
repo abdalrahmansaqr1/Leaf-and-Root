@@ -60,6 +60,16 @@ instances would each keep their own counts (needs a shared store — **D11**). B
 Also fixed: a cookie with invalid percent-encoding made `/auth/me` and `/auth/logout` answer 500; they
 now answer 401 and 204.
 
+## 3b. Local development exposure (found during the documentation audit)
+
+- `compose.yaml` publishes PostgreSQL as `"5434:5432"` without a host-address prefix, which by default
+  listens on all network interfaces, and uses a simple local-only password. On a shared network that
+  exposes the development database. Safer: `"127.0.0.1:5434:5432"`. **Not changed** (outside this
+  documentation task); reachability from another machine was not tested.
+- The Vite dev server listens on `0.0.0.0` unless `FIGMA_DEV_SERVER_HOST` is set (its startup log prints
+  network URLs). That is intended for Figma Make but also exposes the dev app, and through its `/api`
+  proxy the dev API, to the local network.
+
 ## 4. Cookie / CORS / browser behaviour (observed in a real browser)
 
 See the handoff for the exact run. Summary: session cookie is `HttpOnly` (not visible to

@@ -11,6 +11,9 @@ Confirmed by the session brief and/or visible in the frontend UI:
 4. Users cannot assign their own privileged roles.
 5. Stack: NestJS, TypeScript, PostgreSQL, Prisma, REST, OpenAPI, Docker Compose for dev DB, `/api/v1`.
 6. Backend only: no frontend/Flutter/AI/IoT work; no deployment, no production DB changes, no push/merge.
+7. Per the product owner's later brief (SRS citation **pending**, file unavailable): users can add a plant with
+   basic information, view their plants, view plant details, edit a plant, and delete a plant. Nothing is
+   implemented yet; see [04-plant-management-decision-review.md](04-plant-management-decision-review.md).
 
 ## B. Provisional assumptions (implemented, easy to change)
 
@@ -29,6 +32,8 @@ Confirmed by the session brief and/or visible in the frontend UI:
 | P11 | Logout is idempotent (204 even without a valid session) | `auth.controller.ts` | Low |
 | P12 | Swagger on by default outside production | `env.ts` | Config |
 | P13 | Web app is a same-origin client via the Vite proxy; CORS off by default | `create-app.ts` | Config |
+| P14 | Auth rate limits per 15 min: 5 per email+IP (fixed), 20 per IP and 30 per email (configurable) | `auth-rate-limit.ts`, `env.ts` | Config |
+| P15 | scrypt N=2^16, r=8, p=2 with rehash-on-login (argon2id still pending, D10) | `password.ts` | Low |
 
 ## C. Pending decisions (need product/owner input; **not implemented**)
 
@@ -46,10 +51,27 @@ Confirmed by the session brief and/or visible in the frontend UI:
 | D10 | Move to argon2id | scrypt was raised to N=2^16,r=8,p=2 with rehash-on-login (see 02-security-review.md); argon2id still pending |
 | D11 | Deployment topology: reverse proxy (`trust proxy` for correct client IP in rate limiting), TLS, hosting, backups, migration ownership | Rate limiting uses the socket IP until configured |
 | D12 | Photo-submission contract, storage, limits, privacy | Frontend already calls `POST /api/photo-submissions` |
-| D13 | Plant data model, care tasks, marketplace (real commerce vs demo), community moderation, blogs | Currently static frontend data |
+| D13 | Marketplace (real commerce vs demo), community moderation, blogs; plant care tasks | Currently static frontend data. **Plant CRUD** (add/list/view/edit/delete) is per the product owner's brief; its open questions are tracked as PM-1…PM-8 below |
 | D14 | AI provider/model-service integration; IoT protocol/auth (device identity differs from user sessions) | |
-| D15 | CI: add a PostgreSQL service so `test:e2e` runs on pull requests | CI currently only runs `pnpm check` |
+| ~~D15~~ | ~~CI: add a PostgreSQL service so `test:e2e` runs on pull requests~~ | **RESOLVED (verified) on the feature branch:** Actions run 45311513292 (head `799da46`): `check` pass 30/30, `API integration tests (PostgreSQL)` pass 51/51. Not yet on upstream `main`/`development` until the unmerged draft PR lands. See requirements-traceability.md |
 | D16 | Flutter specifics: deep links, push notification tokens | |
+
+## C2. Plant Management decisions (Session 2; full review in 04-plant-management-decision-review.md)
+
+None of these is approved as a final product decision. "Blocks CRUD" = what must be settled before the
+corresponding Plant operation can be implemented.
+
+| # | Decision | Classification | Engineering recommendation | Blocks CRUD |
+|---|---|---|---|---|
+| PM-1 | Plant limit ("up to 10") | Frontend-only marketing copy | No limit; optional config cap later | No |
+| PM-2 | Species catalogue / plant identity | Undefined in requirements | Free-text `species`, no catalogue | No |
+| PM-3 | Care tasks and scheduling | Undefined in requirements | Defer; no schedule fields on `Plant` | No |
+| PM-4 | Care history and retention | Undefined; depends on PM-3, D7 | Defer | No |
+| PM-5 | Plant photos | Undefined; see D12 | No image field; no arbitrary URLs | No |
+| PM-6 | Deletion semantics (hard vs soft; retention) | Operation per brief; semantics **not approved** | Engineering leaning: hard delete, **not approved**; alternatives in the review | **Only the delete operation** (create/list/view/edit can proceed) |
+| PM-7 | Notifications / reminders | Separate capability | Out of scope | No |
+| PM-8 | Device-to-plant mapping | Separate capability; undefined | Out of scope; stable `Plant.id` | No |
+| PM-F | Definition of "basic information" (Plant fields) | Undefined in requirements. **Provisionally accepted by the team** as an engineering assumption: `name` required; `species`, `location`, `notes` optional. Not final product-owner approval | Provisional; final confirmation pending | No |
 
 ## D. Unavailable sources
 SRS/PRD, Flutter app spec, AI service spec, IoT/hardware spec, any API design docs, any Figma

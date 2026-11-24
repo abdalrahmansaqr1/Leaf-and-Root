@@ -63,11 +63,26 @@ Older, weaker hashes (N=2^14, p=1) still verify and are re-hashed on the next su
 Login runs a dummy hash for unknown emails so response time does not reveal which emails exist.
 Moving to argon2id is still pending (D10). See [02-security-review.md](02-security-review.md).
 
+## User permissions and ownership
+
+What exists today:
+
+- Two stored roles, `USER` (default) and `ADMIN`. The role is never returned or writable through the API.
+  **`ADMIN` currently grants nothing**: no endpoint checks the role, and there is no RBAC (decision D5).
+- Every protected endpoint (`GET /auth/me`, `GET`/`PATCH /users/me`) acts on the user attached to the
+  session by `SessionAuthGuard`. There is no `:id` parameter, so one user cannot address another user's
+  record. Logout deletes only the presented session.
+
+Not implemented yet: ownership checks for user-owned resources. The first such resource will be plants;
+the proposed rules (user id taken from the session only, owner-scoped database queries, identical 404 for
+"missing" and "not yours", no role bypass) are **proposals** in
+[04-plant-management-decision-review.md](04-plant-management-decision-review.md#5-ownership-and-authorization-rules-engineering-proposal).
+
 ## Security controls
 
 - Strict Zod schemas (`.strict()`): unknown fields (e.g. `role`) are rejected with 422.
 - `role` is stored but never selectable by clients (`publicUserSelect` omits it) nor writable via the API.
-- Rate limits: 5 attempts / 15 min per `email|ip` on register and login; 100 req/min per IP globally; health exempt.
+- Rate limits: register and login each have three 15-minute windows (per IP, per email+IP = 5, per email; the first and last are configurable, see [server README](../README.md#configuration-environment-variables)); 100 requests/min per IP globally; health exempt. Rationale and trade-offs: [02-security-review.md](02-security-review.md#3-authentication-rate-limits).
 - Security headers (Nest `useSecurityHeaders`, helmet-8 defaults); CSP is relaxed for Swagger only while Swagger is enabled.
 - CSRF: Fetch-Metadata check on state-changing requests; allowlisted CORS origins are trusted; non-browser clients unaffected.
 - CORS: explicit allowlist, credentials on, no wildcard (rejected at config validation).
@@ -88,5 +103,52 @@ Emails are lower-cased and trimmed before storage, so uniqueness is case-insensi
 Unit tests (no DB): password hashing, token hashing, Zod schemas, env validation, log redaction,
 token extraction, test-database safety. Integration tests (real PostgreSQL, isolated `*_test`
 database, real HTTP via `fetch` against a listening app): every endpoint, persistence assertions by
-querying Prisma directly, expiry by rewriting `expiresAt`, logout invalidation, throttling, CORS, CSRF,
-OpenAPI contents.
+querying Prisma directly, expiry by rewriting `expiresAt`, logout invalidation, the three rate-limit
+windows, malformed cookies, legacy password-hash upgrade, CORS, CSRF, OpenAPI contents. Run commands and
+current counts: [server README](../README.md#tests).
+
+## CI (GitHub Actions)
+
+Workflow: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml). Triggers: `pull_request`, and pushes
+to `main` and `development` (a push to any other branch does not start it).
+
+| Job | What it runs | Database |
+|---|---|---|
+| `check` | `pnpm check`: Prisma generate, unit tests, typecheck (web + API), build (web + API) | None. A placeholder `DATABASE_URL` is set because `prisma.config.ts` requires one to load |
+| `api-integration` | `pnpm --dir server prisma:generate` then `pnpm --dir server test:e2e` | PostgreSQL 17 service container; the harness creates `leaf_and_root_test` and applies every migration |
+
+Evidence (GitHub Actions run 45311513292 on the fork's draft PR, head `799da46`): `check` passed
+(30 unit tests, frontend and API builds) and `api-integration` passed (51 tests). An earlier run failed in
+`check` because `DATABASE_URL` was missing; that was fixed without changing any test. The workflow change
+exists on the feature branch only until it is merged, so the upstream `main`/`development` do not run
+`api-integration` yet.
+
+## Integrations not yet implemented (AI and IoT)
+
+**Nothing in this section is implemented, and the requirements documents for it are unavailable**
+(the original SRS/DFD, AI-service spec and IoT/hardware spec are not in the repository). The lists below
+are open questions for the product owner, not requirements.
+
+| Capability | What the repository shows | Open decisions |
+|---|---|---|
+| Photo submission / AI analysis | The frontend (`PlantCareAiPage.tsx`) posts multipart form data to `/api/photo-submissions`; no such route exists on the API | AI provider/model service, sync vs async, photo storage and size/type limits, privacy, moderation, cost and rate limits (D12, D14) |
+| Chatbot | Not present in the repository | Everything (D14) |
+| IoT / sensors | Frontend copy and sample data describe optional sensor readings; no backend code | Protocol, device authentication (devices are not users and must not reuse user sessions), device-to-plant mapping, reading storage and retention (D14, PM-8) |
+
+## Deployment prerequisites
+
+No deployment has been performed or configured. Facts about the current code that any deployment must
+account for (hosting choice and topology are decision D11):
+
+- **No Dockerfile or deployment manifest** exists for the API; only `compose.yaml` for local PostgreSQL.
+- **Migrations are a separate step**: the app does not migrate on boot. Run `pnpm --dir server db:deploy`
+  against the target database before starting a new version.
+- **Required environment**: `DATABASE_URL`; set `NODE_ENV=production` (Secure cookie, Swagger off by
+  default), an explicit `CORS_ALLOWED_ORIGINS` if a browser app on another origin calls the API, and review `LOG_LEVEL`.
+- **HTTPS**: the `Secure` cookie requires HTTPS end to end; this was not exercised in testing.
+- **Reverse proxy**: `trust proxy` is not configured, so behind a proxy every client appears with the proxy's
+  IP and the per-IP rate limit would apply to everyone together.
+- **Rate-limit counters are in memory** and per process; multiple instances would not share them.
+- **Database**: PostgreSQL 17 is what was tested; backups, connection limits and credentials management are open.
+- **Hashing cost**: about 64 MiB of memory per concurrent password hash; size the host accordingly.
+- **Logs** go to stdout as JSON (pino) with sensitive fields redacted; health probe: `GET /api/v1/health`.
